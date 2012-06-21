@@ -38,12 +38,17 @@ var mainCanvas = document.getElementById("mainCanvas");
 var ctx = mainCanvas.getContext("2d");
 var canvasWidth = mainCanvas.width;
 var canvasHeight = mainCanvas.height;
+var MAXRADIUS = 20;
+var friction = .01;
 
 var Ball = function(){
 	this.x = 0;
 	this.y = 0;
 	this.radius = 20;
 	this.color = "rgb(0, 0, 0)";
+	this.nextX = 0;
+	this.nextY = 0;
+	this.mass = this.radius;
 	this.draw = function(){
 		//draw obj
 		ctx.save();
@@ -51,6 +56,10 @@ var Ball = function(){
 		ctx.beginPath();
 		ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2, true);
 		ctx.closePath();
+		ctx.shadowOffsetX = 0;
+		ctx.shadowOffsetY = 0;
+		ctx.shadowColor = "white";
+		ctx.shadowBlur = 20;
 		ctx.fill();
 		ctx.restore();
 	};
@@ -82,7 +91,7 @@ var Ball = function(){
 
 
 function drawBackground(){
-	ctx.fillStyle = "#EEEEEE";
+	ctx.fillStyle = "#000000";
 	ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 	//Box
 	ctx.strokeStyle = "#000000";
@@ -98,9 +107,9 @@ function movePbV(count){
 	var yunits = [];
 	for(var i = 0; i < count; i++){
 		obj[i] = new Ball();
-		obj[i].x = Math.floor(Math.random()*800);
-		obj[i].y = Math.floor(Math.random()*500);
-		obj[i].radius = Math.floor(Math.random()*20);
+		obj[i].x = Math.floor(Math.random()*canvasWidth);
+		obj[i].y = Math.floor(Math.random()*canvasHeight);
+		obj[i].radius = Math.floor(Math.random()*MAXRADIUS);
 		obj[i].color = obj[i].changeColor();
 		xunits[i] = 0;
 		yunits[i] = 0;
@@ -110,6 +119,8 @@ function movePbV(count){
 	for(var k = 0; k < count; k++){
 		xunits[k] = Math.cos(angle[k] * Math.PI/180) * speed;
 		yunits[k] = Math.sin(angle[k] * Math.PI/180) * speed;
+		obj[k].nextX = obj[k].x + xunits[k];
+		obj[k].nextY = obj[k].y + yunits[k];
 	}
 	
 	setInterval(drawAnimation, 10);
@@ -118,24 +129,101 @@ function movePbV(count){
 		drawBackground();
 		
 		for(var j = 0; j < count; j++){
+			//render the balls
 			obj[j].draw();
-		
-			if(obj[j].x + xunits[j] /*+ obj[j].radius*/ > canvasWidth || obj[j].x + xunits[j] /*- obj[j].radius*/ < 0){
+			
+			//test wheather bounding the walls
+			if(obj[j].x + xunits[j] + obj[j].radius > canvasWidth || obj[j].x + xunits[j] - obj[j].radius < 0){
 				angle[j] = 180 - angle[j];
 				xunits[j] = Math.cos(angle[j] * Math.PI/180) * speed;
 				yunits[j] = Math.sin(angle[j] * Math.PI/180) * speed;
 				obj[j].changeColor();
-			}else if(obj[j].y + yunits[j] /*+ obj[j].radius*/ > canvasHeight || obj[j].y + yunits[j] /*- obj[j].radius*/ < 0){
+			}else if(obj[j].y + yunits[j] + obj[j].radius > canvasHeight || obj[j].y + yunits[j] - obj[j].radius < 0){
 				angle[j] = 360 - angle[j];
 				xunits[j] = Math.cos(angle[j] * Math.PI/180) * speed;
 				yunits[j] = Math.sin(angle[j] * Math.PI/180) * speed;
 				obj[j].changeColor();
 			}
+			
+			//update the nextX and nextY
+			obj[j].nextX = obj[j].x + xunits[j];
+			obj[j].nextY = obj[j].y + yunits[j];
+			
+			//test wheather the balls collide each other
+			for(var r = j+1; r < count; r++){
+				obj[r].nextX = obj[r].x + xunits[r];
+				obj[r].nextY = obj[r].y + yunits[r];
+				if(hitTestCircle(obj[j], obj[r])){
+					var result = collideBalls(obj[j], obj[r], xunits[j], yunits[j], xunits[r], yunits[r]);
+					xunits[j] = result.vx1 - result.vx1 * friction;
+					yunits[j] = result.vy1 - result.vy1 * friction;
+					xunits[r] = result.vx2 - result.vx2 * friction;
+					yunits[r] = result.vy2 - result.vy2 * friction;
+				}
+			}
+			
+			
+			//update the balls
 			obj[j].x += xunits[j];
 			obj[j].y += yunits[j];
 		}
 	}
 }
+
+
+function hitTestCircle(ball1, ball2){
+	var retval = false;
+	var dx = ball1.nextX - ball2.nextX;
+	var dy = ball1.nextY - ball2.nextY;
+	var distance = (dx*dx + dy*dy);
+	if(distance <= (ball1.radius + ball2.radius) * (ball1.radius + ball2.radius)){
+		retval = true;
+	}
+	return retval;
+}
+
+
+function collideBalls(ball1, ball2, vx1, vy1, vx2, vy2){
+	var dx = ball1.nextX - ball2.nextX;
+	var dy = ball1.nextY - ball2.nextY;
+	
+	var collisionAngle = Math.atan2(dy, dx);
+	
+	var speed1 = Math.sqrt(vx1*vx1 + vy1*vy1);
+	var speed2 = Math.sqrt(vx2*vx2 + vy2*vy2);
+	
+	var direction1 = Math.atan2(vy1, vx1);
+	var direction2 = Math.atan2(vy2, vx2);
+	
+	var vx_1 = speed1 * Math.cos(direction1 - collisionAngle); 
+	var vy_1 = speed1 * Math.cos(direction1 - collisionAngle); 
+	var vx_2 = speed2 * Math.cos(direction2 - collisionAngle); 
+	var vy_2 = speed2 * Math.cos(direction2 - collisionAngle);
+	
+	var final_vx1 = ((ball1.mass - ball2.mass) * vx_1 + (ball2.mass + ball2.mass) * vx_2)/(ball1.mass + ball2.mass);
+	var final_vx2 = ((ball1.mass + ball1.mass) * vx_1 + (ball2.mass - ball1.mass) * vx_2)/(ball1.mass + ball2.mass);
+	
+	var final_vy1 = vy_1;
+	var final_vy2 = vy_2;
+	
+	vx1 = Math.cos(collisionAngle) * final_vx1 + Math.cos(collisionAngle + Math.PI/2) * final_vy1;
+	vy1 = Math.sin(collisionAngle) * final_vx1 + Math.sin(collisionAngle + Math.PI/2) * final_vy1;
+	vx2 = Math.cos(collisionAngle) * final_vx2 + Math.cos(collisionAngle + Math.PI/2) * final_vy2;
+	vy2 = Math.sin(collisionAngle) * final_vx2 + Math.sin(collisionAngle + Math.PI/2) * final_vy2;
+	
+	ball1.nextX = (ball1.nextX += vx1);
+	ball1.nextY = (ball1.nextY += vy1);
+	ball2.nextX = (ball2.nextX += vx2);
+	ball2.nextY = (ball2.nextY += vy2);
+	
+	return {
+		vx1: vx1,
+		vy1: vy1,
+		vx2: vx2,
+		vy2: vy2
+	};
+}
+
 
 
 </script>
