@@ -1,0 +1,143 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Test!</title>
+<style>
+#canvasWrapper, #controlWrapper{
+	display:block;
+	float: left;
+	margin:10px;
+	height:500px;
+	padding:5px;
+}
+#controlWrapper{
+	border:1px solid rgb(200, 200, 200);
+	background-color:rgb(240, 240, 240);
+}
+#play{
+	display:block;
+	width:120px;
+	height:30px;
+	margin:15px auto;
+}
+</style>
+</head>
+<body>
+<div id="canvasWrapper">
+	<canvas id="mainCanvas" width="800" height="500">canvas here.</canvas>
+</div>
+<div id="controlWrapper">
+	<p>set the count of balls:</p>
+	<input id="setCount" type="text" />
+	<br/>
+	<input id="play" type="button" value="play" />
+</div>
+<script type="text/javascript">
+var mainCanvas = document.getElementById("mainCanvas");
+var ctx = mainCanvas.getContext("2d");
+var canvasWidth = mainCanvas.width;
+var canvasHeight = mainCanvas.height;
+
+var Ball = function(){
+	this.x = 0;
+	this.y = 0;
+	this.radius = 20;
+	this.color = "rgb(0, 0, 0)";
+	this.draw = function(){
+		//draw obj
+		ctx.save();
+		ctx.fillStyle = this.color;
+		ctx.beginPath();
+		ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2, true);
+		ctx.closePath();
+		ctx.fill();
+		ctx.restore();
+	};
+	this.changeColor = function(r, g, b){
+		var colorStr = "";
+		if(r && g && b){
+			if(r >= 0 && r < 256 && g >= 0 && g < 256 && b >= 0 && b < 256){
+				colorStr = "rgb("+r+","+g+","+b+")";
+			}
+		}else{
+			r = Math.floor(Math.random()*255);
+			g = Math.floor(Math.random()*255);
+			b = Math.floor(Math.random()*255);
+			colorStr =  "rgb("+r+","+g+","+b+")";
+		}
+		this.color = colorStr.toString();
+	};
+};
+
+
+(function mainApp(){
+	drawBackground();
+	var playBtn = document.getElementById("play");
+	playBtn.onclick = function(){
+		var count = document.getElementById("setCount").value;
+		movePbV(count);
+	};
+})();
+
+
+function drawBackground(){
+	ctx.fillStyle = "#EEEEEE";
+	ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+	//Box
+	ctx.strokeStyle = "#000000";
+	ctx.strokeRect(1, 1, canvasWidth-2, canvasHeight-2);
+}
+
+
+function movePbV(count){ 
+	var obj = new Array(count);
+	var speed = 5;
+	var angle = [];
+	var xunits = [];
+	var yunits = [];
+	for(var i = 0; i < count; i++){
+		obj[i] = new Ball();
+		obj[i].x = Math.floor(Math.random()*800);
+		obj[i].y = Math.floor(Math.random()*500);
+		obj[i].radius = Math.floor(Math.random()*20);
+		obj[i].color = obj[i].changeColor();
+		xunits[i] = 0;
+		yunits[i] = 0;
+		angle[i] = Math.floor(Math.random()*360);
+	}
+	
+	for(var k = 0; k < count; k++){
+		xunits[k] = Math.cos(angle[k] * Math.PI/180) * speed;
+		yunits[k] = Math.sin(angle[k] * Math.PI/180) * speed;
+	}
+	
+	setInterval(drawAnimation, 10);
+	
+	function drawAnimation(){
+		drawBackground();
+		
+		for(var j = 0; j < count; j++){
+			obj[j].draw();
+		
+			if(obj[j].x + xunits[j] /*+ obj[j].radius*/ > canvasWidth || obj[j].x + xunits[j] /*- obj[j].radius*/ < 0){
+				angle[j] = 180 - angle[j];
+				xunits[j] = Math.cos(angle[j] * Math.PI/180) * speed;
+				yunits[j] = Math.sin(angle[j] * Math.PI/180) * speed;
+				obj[j].changeColor();
+			}else if(obj[j].y + yunits[j] /*+ obj[j].radius*/ > canvasHeight || obj[j].y + yunits[j] /*- obj[j].radius*/ < 0){
+				angle[j] = 360 - angle[j];
+				xunits[j] = Math.cos(angle[j] * Math.PI/180) * speed;
+				yunits[j] = Math.sin(angle[j] * Math.PI/180) * speed;
+				obj[j].changeColor();
+			}
+			obj[j].x += xunits[j];
+			obj[j].y += yunits[j];
+		}
+	}
+}
+
+
+</script>
+</body>
+</html>
